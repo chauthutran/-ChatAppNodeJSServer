@@ -348,8 +348,8 @@ io.on('connection', socket => {
 				}
 
 				// Check if there is any new contact created
-				// if( hasNewMessages && userData.contacts.length < userInfo.contacts.length )
-				// {
+				if( hasNewMessages && userData.contacts.length < userInfo.contacts.length )
+				{
 					let contactNameList = userInfo.contacts.map(contact => contact.contactName);
 					UsersCollection.find({username: { $in: contactNameList }}).then(( contactList ) => {
 						// Update User to mongodb
@@ -360,17 +360,17 @@ io.on('connection', socket => {
 							}
 						})
 					})
-				// }
-				// else
-				// {
-				// 	// Update User to mongodb
-				// 	UsersCollection.updateOne({username: userInfo.username}, { contacts: userInfo.contacts }).then((res) => {
-				// 		const to = userInfo.username;
-				// 		if(socketList.hasOwnProperty(to)){
-				// 			socketList[to].emit( 'receive_message', {userData: userInfo} );
-				// 		}
-				// 	})
-				// }
+				}
+				else
+				{
+					// Update User to mongodb
+					UsersCollection.updateOne({username: userInfo.username}, { contacts: userInfo.contacts }).then((res) => {
+						const to = userInfo.username;
+						if(socketList.hasOwnProperty(to)){
+							socketList[to].emit( 'receive_message', {userData: userInfo} );
+						}
+					})
+				}
 				
 			}
 		});
