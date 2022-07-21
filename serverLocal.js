@@ -187,7 +187,60 @@ const server = express()
 
 				
 				console.log(" === Data is sent successfully.");
+			});
+
+
+			// ---------------------------------------------------
+			// Check new contact
+			console.log( " =========== Check new contact ");
+			console.log( userList[0]);
+			var userInfo0 = userList[0];
+			for( var i=0; i< userInfo0.contacts.length; i++ )
+			{
+				if( userInfo0.contacts[i].contactName == contactName )
+				{
+					userInfo0.contacts[i].hasNewMessages = hasNewMessages;
+					break;
+				}
+			}
+
+			let contactNameList0 = userInfo0.contacts.map(contact => contact.contactName);
+			
+			console.log( " ====contactNameList0 ");
+			console.log( contactNameList0 );
+
+			UsersCollection.find({username: { $in: contactNameList0 }}).then(( contactList ) => {
+				// Update User to mongodb
+				UsersCollection.updateOne({username: userInfo0.username}, { contacts: userInfo0.contacts }).then((res) => {
+					const to = userInfo0.username;
+					if(socketList.hasOwnProperty(to)){
+						socketList[to].emit( 'receive_message', {userData: userInfo0, contacts: contactList} );
+					}
+				})
 			})
+
+			
+			var userInfo1 = userList[1];
+			for( var i=0; i< userInfo1.contacts.length; i++ )
+			{
+				if( userInfo1.contacts[i].contactName == contactName )
+				{
+					userInfo1.contacts[i].hasNewMessages = hasNewMessages;
+					break;
+				}
+			}
+
+			let contactNameList1 = userInfo1.contacts.map(contact => contact.contactName);
+			UsersCollection.find({username: { $in: contactNameList1 }}).then(( contactList ) => {
+				// Update User to mongodb
+				UsersCollection.updateOne({username: userInfo1.username}, { contacts: userInfo1.contacts }).then((res) => {
+					const to = userInfo1.username;
+					if(socketList.hasOwnProperty(to)){
+						socketList[to].emit( 'receive_message', {userData: userInfo1, contacts: contactList} );
+					}
+				})
+			})
+
 		})
 	}
 	catch( ex )
