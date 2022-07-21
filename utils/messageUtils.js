@@ -1,4 +1,4 @@
-// const WTSA_URL = "https://api-dev.psi-connect.org/TTS.whatsappMsgTest";
+//const WTSA_URL = "https://api-dev.psi-connect.org/TTS.whatsappMsgTest";
 const WTSA_URL = "https://api-dev.psi-connect.org/TTS.wtsaMsgSend";
 const axios = require('axios');
 
@@ -40,10 +40,10 @@ class MessageUtils {
                     axios.post( WTSA_URL, data )
                         .then(function (response) {
                             console.log("-- The message is sent to Whatsapp.");
-                            console.log(response);
                         })
                         .catch(function (err) {
                             console.log("-- The message couldn't be sent to Whatsapp." + err.message );
+                            console.log( data );
                         });
                 }
             }
