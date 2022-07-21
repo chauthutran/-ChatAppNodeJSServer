@@ -1,5 +1,5 @@
 // const WTSA_URL = "https://api-dev.psi-connect.org/TTS.whatsappMsgTest";
-const WTSA_URL = "https://api-dev.psi-connect.org/TTS.whatsappMsgSend";
+const WTSA_URL = "https://api-dev.psi-connect.org/TTS.wtsaMsgSend";
 const axios = require('axios');
 
 const {ServerUtils} = require("./utils");
