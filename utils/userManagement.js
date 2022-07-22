@@ -19,7 +19,7 @@ const UserManagement = class {
 				if( list[0].username == username1 )
 				{
 					this.createUserByUsername(username2, username1, function(newUserData2){
-						me.updateContact( list[0],username2, function( newUserData1 ) {
+						me.updateContact( list[0], username2, function( newUserData1 ) {
 							exeFunc( [newUserData1, newUserData2] );
 						} );
 					} );
@@ -92,7 +92,7 @@ const UserManagement = class {
 
 			// For Sender data
 			let senderFullName = sender.id;
-			if( sender.clientDetail.firstName != undefined || sender.clientDetail.lastName != lastName )
+			if( sender.clientDetail.firstName != undefined || sender.clientDetail.lastName != undefined )
 			{
 				senderFullName = sender.clientDetail.firstName + " " + sender.clientDetail.lastName;
 			}
@@ -106,13 +106,7 @@ const UserManagement = class {
 					hasNewMessages: false
 				}]
 			}
-
-			
-		console.log("==== sender");
-		console.log(userData1);
-		console.log("==== receiver");
-		console.log(userData2);
-
+					
 			// Create/Update relationships
 			if( list.length == 1 )
 			{
@@ -163,6 +157,8 @@ const UserManagement = class {
 					})
 				}
 			}
+		}).catch(function (err) {
+			console.log("-- Couldn't create users because " + err.message );
 		});
 	};
 
@@ -182,7 +178,6 @@ const UserManagement = class {
 		// Save message to mongodb
 		const user = new UsersCollection( userData );
 		user.save(function(a, newUser, c){
-			console.log(newUser);
 			if( exeFunc ) exeFunc( newUser );
 		})
 	}
