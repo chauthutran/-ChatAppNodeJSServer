@@ -51,17 +51,14 @@ const server = express()
 })
 .get("/users", (req, res) => {
 	const username = req.query.username;
-	try{
+	try {
 		UsersCollection.find({username: username}).then(( list ) => {
 			if( list.length > 0 )
 			{
 				const curUser = list[0];
-				let contactNameList = curUser.contacts.map(contact => contact.contactName);
+				// let contactNameList = curUser.contacts.map(contact => contact.contactName);
 	
-				UsersCollection.find(
-					{ username: { $in: contactNameList } }
-				)
-				// .sort({ fullName: 1 })
+				UsersCollection.find({username: {$in: contactNameLis }})
 				.then(( contactList ) => {
 					MessagesCollection.find().or([
 						{ sender: username },
@@ -92,11 +89,13 @@ const server = express()
 							}
 						}
 						
-						res.send({ curUser: curUser, contacts: contactUserList });
+						res.send({status: "SUCCESS", curUser: curUser, contacts: contactUserList});
 					})
-
-					
-				})
+				}).catch( ex )
+				{
+					res.send({status: "ERROR", msg: ex.message});
+					console.log(`============================= GET /users/${username} throws error. ` + ex.message);
+				}
 			}
 			else
 			{
@@ -107,14 +106,19 @@ const server = express()
 				}
 				const user = new UsersCollection( curUser );
 				user.save().then(() => {
-					res.send({ curUser: curUser, contacts: [] });
-				})
+					res.send({status: "SUCCESS", curUser: curUser, contacts: []});
+				}).catch( ex )
+				{
+					res.send({status: "ERROR", msg: `Couldn't create user with username ${username}.` + ex.message});
+					console.log(`============================= GET /users/${username} throws error. Couldn't create user with username ${username}.` + ex.message);
+				}
 			}
 		});
 	}
 	catch( ex )
 	{
 		res.send({status: "ERROR", msg: ex.message});
+		console.log(`============================= GET /users/${username} throws error. ` + ex.message);
 	}
 	
 })
@@ -122,10 +126,19 @@ const server = express()
 	const username1 = req.body.username1;
 	const username2 = req.body.username2;
 
-	const userManagement = new UserManagement();
-	userManagement.createIfNotExist(  username1, username2, function(){
-		res.send({msg: `The user is created.`, "status": "SUCCESS"});
-	})
+	try
+	{
+		const userManagement = new UserManagement();
+		userManagement.createIfNotExist(  username1, username2, function(){
+			res.send({msg: `The user is created.`, "status": "SUCCESS"});
+		})
+	}
+	catch( ex )
+	{
+		res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
+		console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+	}
+	
 })
 .get("/messages", (req, res) => {
 	const username1 = req.query.username1;
@@ -193,15 +206,18 @@ const server = express()
 					}
 				}
 				res.send({msg:"Data is sent.", "status": "SUCCESS"});
-				console.log("=== Data is sent successfully.");
-			});
-
+				console.log("--- Data is sent successfully.");
+			}).catch( ex )
+			{
+				res.send({ status: "ERROR", msg: ex.message });
+				console.log("--- ERROR ( while sending message ) " + ex.message );
+			};
 		})
 	}
 	catch( ex )
 	{
 		res.send({ status: "ERROR", msg: ex.message });
-		console.log("=== ERROR ( while sending message ) " + ex.message );
+		console.log("--- ERROR ( while sending message ) " + ex.message );
 	}
 })
 .listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -241,7 +257,7 @@ io.use( async(socket, next) => {
 		
 		const username = socket.handshake.auth.username;
 		if (!username) {
-			return next(new Error("invalid username"));
+			return next(new Error("invalid username."));
 		}
 
 		// create new session
