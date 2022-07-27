@@ -51,17 +51,14 @@ const server = express()
 })
 .get("/users", (req, res) => {
 	const username = req.query.username;
-	try{
+	try {
 		UsersCollection.find({username: username}).then(( list ) => {
 			if( list.length > 0 )
 			{
 				const curUser = list[0];
-				let contactNameList = curUser.contacts.map(contact => contact.contactName);
+				// let contactNameList = curUser.contacts.map(contact => contact.contactName);
 	
-				UsersCollection.find(
-					{ username: { $in: contactNameList } }
-				)
-				// .sort({ fullName: 1 })
+				UsersCollection.find({username: {$in: contactNameLis }})
 				.then(( contactList ) => {
 					MessagesCollection.find().or([
 						{ sender: username },
@@ -92,11 +89,13 @@ const server = express()
 							}
 						}
 						
-						res.send({ curUser: curUser, contacts: contactUserList });
+						res.send({status: "SUCCESS", curUser: curUser, contacts: contactUserList});
 					})
-
-					
-				})
+				}).catch( ex )
+				{
+					res.send({status: "ERROR", msg: ex.message});
+					console.log(`============================= GET /users/${username} throws error. ` + ex.message);
+				}
 			}
 			else
 			{
@@ -107,14 +106,19 @@ const server = express()
 				}
 				const user = new UsersCollection( curUser );
 				user.save().then(() => {
-					res.send({ curUser: curUser, contacts: [] });
-				})
+					res.send({status: "SUCCESS", curUser: curUser, contacts: []});
+				}).catch( ex )
+				{
+					res.send({status: "ERROR", msg: `Couldn't create user with username ${username}.` + ex.message});
+					console.log(`============================= GET /users/${username} throws error. Couldn't create user with username ${username}.` + ex.message);
+				}
 			}
 		});
 	}
 	catch( ex )
 	{
 		res.send({status: "ERROR", msg: ex.message});
+		console.log(`============================= GET /users/${username} throws error. ` + ex.message);
 	}
 	
 })
@@ -122,10 +126,19 @@ const server = express()
 	const username1 = req.body.username1;
 	const username2 = req.body.username2;
 
-	const userManagement = new UserManagement();
-	userManagement.createIfNotExist(  username1, username2, function(){
-		res.send({msg: `The user is created.`, "status": "SUCCESS"});
-	})
+	try
+	{
+		const userManagement = new UserManagement();
+		userManagement.createIfNotExist(  username1, username2, function(){
+			res.send({msg: `The user is created.`, "status": "SUCCESS"});
+		})
+	}
+	catch( ex )
+	{
+		res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
+		console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+	}
+	
 })
 .get("/messages", (req, res) => {
 	const username1 = req.query.username1;
@@ -149,11 +162,10 @@ const server = express()
 })
 .post('/messages', function(req, res){
 	
-	console.log(" ============================= Send data from POST request : ");
+	console.log("============================= Send data from POST request : ");
 
 	try
 	{
-		
 		const data = req.body;
 
 		const userManagement = new UserManagement();
@@ -173,80 +185,39 @@ const server = express()
 				"msgtype": data.msgtype,
 				filetype
 			}
-
-			console.log(" === messageData : ");
-			console.log(messageData);
 			
 			const message = new MessagesCollection( messageData );
 			message.save().then(() => {
 				const to = messageData.receiver;
 				if(socketList.hasOwnProperty(to)){
 					socketList[to].emit( 'sendMsg', messageData );
+
+					// ---------------------------------------------------
+					// Check new contact
+					var userInfo0 = userList[0];
+					var userInfo1 = userList[1];
+
+					if(socketList.hasOwnProperty(userInfo0)){
+						socketList[userInfo0].emit( 'receive_message', {userData: userInfo0, newContact: userInfo1} );
+					}
+
+					if(socketList.hasOwnProperty(userInfo1)){
+						socketList[userInfo1].emit( 'receive_message', {userData: userInfo1, newContact: userInfo0} );
+					}
 				}
 				res.send({msg:"Data is sent.", "status": "SUCCESS"});
-
-				
-				console.log(" === Data is sent successfully.");
-			});
-
-
-			// ---------------------------------------------------
-			// Check new contact
-			console.log( " =========== Check new contact ");
-			console.log( userList[0]);
-			var userInfo0 = userList[0];
-			for( var i=0; i< userInfo0.contacts.length; i++ )
+				console.log("--- Data is sent successfully.");
+			}).catch( ex )
 			{
-				if( userInfo0.contacts[i].contactName == contactName )
-				{
-					userInfo0.contacts[i].hasNewMessages = hasNewMessages;
-					break;
-				}
-			}
-
-			let contactNameList0 = userInfo0.contacts.map(contact => contact.contactName);
-			
-			console.log( " ====contactNameList0 ");
-			console.log( contactNameList0 );
-
-			UsersCollection.find({username: { $in: contactNameList0 }}).then(( contactList ) => {
-				// Update User to mongodb
-				UsersCollection.updateOne({username: userInfo0.username}, { contacts: userInfo0.contacts }).then((res) => {
-					const to = userInfo0.username;
-					if(socketList.hasOwnProperty(to)){
-						socketList[to].emit( 'receive_message', {userData: userInfo0, contacts: contactList} );
-					}
-				})
-			})
-
-			
-			var userInfo1 = userList[1];
-			for( var i=0; i< userInfo1.contacts.length; i++ )
-			{
-				if( userInfo1.contacts[i].contactName == contactName )
-				{
-					userInfo1.contacts[i].hasNewMessages = hasNewMessages;
-					break;
-				}
-			}
-
-			let contactNameList1 = userInfo1.contacts.map(contact => contact.contactName);
-			UsersCollection.find({username: { $in: contactNameList1 }}).then(( contactList ) => {
-				// Update User to mongodb
-				UsersCollection.updateOne({username: userInfo1.username}, { contacts: userInfo1.contacts }).then((res) => {
-					const to = userInfo1.username;
-					if(socketList.hasOwnProperty(to)){
-						socketList[to].emit( 'receive_message', {userData: userInfo1, contacts: contactList} );
-					}
-				})
-			})
-
+				res.send({ status: "ERROR", msg: ex.message });
+				console.log("--- ERROR ( while sending message ) " + ex.message );
+			};
 		})
 	}
 	catch( ex )
 	{
-		console.log(" === ERROR when data is sent. ");
-		console.log( ex );
+		res.send({ status: "ERROR", msg: ex.message });
+		console.log("--- ERROR ( while sending message ) " + ex.message );
 	}
 })
 .listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -286,7 +257,7 @@ io.use( async(socket, next) => {
 		
 		const username = socket.handshake.auth.username;
 		if (!username) {
-			return next(new Error("invalid username"));
+			return next(new Error("invalid username."));
 		}
 
 		// create new session
@@ -400,31 +371,16 @@ io.on('connection', socket => {
 					}
 				}
 
-				// Check if there is any new contact created
-				// if( hasNewMessages && userData.contacts.length < userInfo.contacts.length )
-				// {
-					let contactNameList = userInfo.contacts.map(contact => contact.contactName);
-					UsersCollection.find({username: { $in: contactNameList }}).then(( contactList ) => {
-						// Update User to mongodb
-						UsersCollection.updateOne({username: userInfo.username}, { contacts: userInfo.contacts }).then((res) => {
-							const to = userInfo.username;
-							if(socketList.hasOwnProperty(to)){
-								socketList[to].emit( 'receive_message', {userData: userInfo, contacts: contactList} );
-							}
-						})
+				UsersCollection.find({username: contactName}).then(( contactData ) => {
+					// Update User to mongodb
+					UsersCollection.updateOne({username: userInfo.username}, { contacts: userInfo.contacts }).then((res) => {
+						const to = userInfo.username;
+						if(socketList.hasOwnProperty(to)){
+							socketList[to].emit( 'receive_message', {userData: userInfo, newContact: contactData[0]} );
+						}
 					})
-				// }
-				// else
-				// {
-				// 	// Update User to mongodb
-				// 	UsersCollection.updateOne({username: userInfo.username}, { contacts: userInfo.contacts }).then((res) => {
-				// 		const to = userInfo.username;
-				// 		if(socketList.hasOwnProperty(to)){
-				// 			socketList[to].emit( 'receive_message', {userData: userInfo} );
-				// 		}
-				// 	})
-				// }
-				
+				})
+
 			}
 		});
 		
