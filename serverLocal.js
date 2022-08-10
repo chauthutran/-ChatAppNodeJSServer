@@ -56,9 +56,9 @@ const server = express()
 			if( list.length > 0 )
 			{
 				const curUser = list[0];
-				// let contactNameList = curUser.contacts.map(contact => contact.contactName);
+				let contactNameList = curUser.contacts.map(contact => contact.contactName);
 	
-				UsersCollection.find({username: {$in: contactNameLis }})
+				UsersCollection.find({username: {$in: contactNameList }})
 				.then(( contactList ) => {
 					MessagesCollection.find().or([
 						{ sender: username },

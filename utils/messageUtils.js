@@ -11,7 +11,7 @@ class MessageUtils {
     constructor( ) {
 	}
 
-	sendWtsaMessage( sendUsername, receiveUsername, message ) {
+	sendWtsaMessage( sendUsername, receiveUsername, message, fileType, fileUrl ) {
         console.log("--- Whatsapp sending data ");
 
         try{
@@ -36,7 +36,9 @@ class MessageUtils {
                                 "sendUsername": sendUsername,
                                 "receiveUserName": receiveUsername,
                                 "toPhoneNumber": receiveUser.wtsa,
-                                "fromPhoneNumber": senderUser.wtsa 
+                                "fromPhoneNumber": senderUser.wtsa,
+                                fileType,
+                                fileUrl
                             } 
                         }
 
