@@ -1,7 +1,13 @@
 'use strict';
 
 const express = require('express');
-var cors = require('cors')
+var cors = require('cors');
+
+var SocketIOFileUpload = require("socketio-file-upload");
+const fs = require('fs')
+
+const { writeFile } = require("fs");
+
 const bodyParser = require("body-parser");
 const crypto = require("crypto");
 const randomId = () => crypto.randomBytes(8).toString("hex");
@@ -43,59 +49,82 @@ mongoose.connect(mongoDB).then(() => {
 
 
 const server = express()
+.use(SocketIOFileUpload.router)
 .use(cors())
 .use(bodyParser.urlencoded({ extended: false }))
 .use(bodyParser.json())
 .get('/', (req, res) => {
 	res.send('Chat server started !!!');
 })
+.get('/uploads', (req, res) => {
+    res.sendFile(__dirname + "/uploads/" + req.query.path);
+})
 .get("/users", (req, res) => {
 	const username = req.query.username;
 	try {
-		UsersCollection.find({username: username}).then(( list ) => {
+		UsersCollection.find({
+			"$or": [
+				{ "username": username },
+				{ "contacts": { 
+					"$elemMatch": { "contactName": username } 
+				}},
+			]
+		}).then(( list ) => {
 			if( list.length > 0 )
 			{
-				const curUser = list[0];
-				let contactNameList = curUser.contacts.map(contact => contact.contactName);
-	
-				UsersCollection.find({username: {$in: contactNameList }})
-				.then(( contactList ) => {
-					MessagesCollection.find().or([
-						{ sender: username },
-						{ receiver: username }
-					])
-					.sort({ datetime: -1 })
-					.then(( messageList ) => {
-						
-						let contactUserList = [];
-						for( var i=0; i<messageList.length; i++ )
-						{ 
-							const contactName = ( messageList[i].sender !== username ) ? messageList[i].sender : messageList[i].receiver;
-							const found = serverUtils.findItemFromList( contactUserList, contactName, "username" );
-							if(!found) 
-							{
-								contactUserList.push( serverUtils.findItemFromList(contactList, contactName, "username") );
-							}
-						}
+				// Find "username" with full information
+				const curUser = serverUtils.findItemFromList(list, username, "username" );
 
-						// Add the contactData for contacts without any messages
-						for( var i=0; i<contactList.length; i++ )
-						{ 
-							const contactData = contactList[i];
-							const found = serverUtils.findItemFromList( contactUserList, contactData.username, "username" );
-							if(!found) 
+				// Remove the contactData if this contact has relationship with the "username", BUT "username" doesn't have relationship with this contactName
+				let tempContactList = [];
+				for( var i=0; i<list.length; i++ )
+				{ 
+					const contactData = list[i];
+					if( contactData.username != username )
+					{
+						const found = serverUtils.findItemFromList( curUser.contacts, contactData.username, "contactName" );
+						if( found ) 
+						{
+							tempContactList.push( contactData );
+						}
+					}
+				}
+				
+
+				MessagesCollection.find().or([
+					{ sender: username },
+					{ receiver: username }
+				])
+				.sort({ datetime: -1 })
+				.then(( messageList ) => {
+					let contactUserList = [];
+					for( var i=0; i<messageList.length; i++ )
+					{ 
+						const contactName = ( messageList[i].sender !== username ) ? messageList[i].sender : messageList[i].receiver;
+						const found = serverUtils.findItemFromList( contactUserList, contactName, "username" );
+						if(!found) 
+						{
+							const contactData = serverUtils.findItemFromList(tempContactList, contactName, "username");
+							if( contactData != undefined )
 							{
 								contactUserList.push( contactData );
 							}
 						}
-						
-						res.send({status: "SUCCESS", curUser: curUser, contacts: contactUserList});
-					})
-				}).catch( ex )
-				{
-					res.send({status: "ERROR", msg: ex.message});
-					console.log(`============================= GET /users/${username} throws error. ` + ex.message);
-				}
+					}
+
+					// Add the contactData for contacts without any messages
+					for( var i=0; i<tempContactList.length; i++ )
+					{ 
+						const contactData = tempContactList[i];
+						const found = serverUtils.findItemFromList( contactUserList, contactData.username, "username" );
+						if(!found ) 
+						{
+							contactUserList.push( contactData );
+						}
+					}
+
+					res.send({status: "SUCCESS", curUser: curUser, contacts: contactUserList});
+				})
 			}
 			else
 			{
@@ -107,13 +136,13 @@ const server = express()
 				const user = new UsersCollection( curUser );
 				user.save().then(() => {
 					res.send({status: "SUCCESS", curUser: curUser, contacts: []});
-				}).catch( ex )
+				}).catch( saveExp )
 				{
-					res.send({status: "ERROR", msg: `Couldn't create user with username ${username}.` + ex.message});
-					console.log(`============================= GET /users/${username} throws error. Couldn't create user with username ${username}.` + ex.message);
+					res.send({status: "ERROR", msg: `Couldn't create user with username ${username}.` + saveExp.message});
+					console.log(`============================= GET /users/${username} throws error. Couldn't create user with username ${username}.` + saveExp.message);
 				}
 			}
-		});
+		})
 	}
 	catch( ex )
 	{
@@ -207,17 +236,18 @@ const server = express()
 				}
 				res.send({msg:"Data is sent.", "status": "SUCCESS"});
 				console.log("--- Data is sent successfully.");
-			}).catch( ex )
-			{
-				res.send({ status: "ERROR", msg: ex.message });
-				console.log("--- ERROR ( while sending message ) " + ex.message );
-			};
+			})
+			// .catch( saveExp )
+			// {
+			// 	res.send({ status: "ERROR", msg: saveExp.message });
+			// 	console.log("--- ERROR ( while sending message ) " + saveExp.message );
+			// };
 		})
 	}
-	catch( ex )
+	catch( createExp )
 	{
-		res.send({ status: "ERROR", msg: ex.message });
-		console.log("--- ERROR ( while sending message ) " + ex.message );
+		res.send({ status: "ERROR", msg: createExp.message });
+		console.log("--- ERROR ( while sending message ) " + createExp.message );
 	}
 })
 .listen(PORT, () => console.log(`Listening on ${PORT}`));
@@ -282,6 +312,33 @@ io.use( async(socket, next) => {
 
 io.on('connection', socket => {
 
+
+	// --------------------------------------------------------------------------------------------------------------
+	// Upload file
+
+	// Make an instance of SocketIOFileUpload and listen on this socket:
+	var uploader = new SocketIOFileUpload();
+	uploader.dir = "uploads";
+	uploader.listen(socket);
+
+	// Do something when a file is saved:
+	uploader.on("saved", function (event) {
+		// console.log(event);
+
+		const filePath = event.file.name.split(".");
+		event.file.clientDetail.name = event.file.base + "." + filePath[filePath.length - 1]; 
+	});
+
+	// Error handler:
+	uploader.on("error", function (event) {
+		console.log("Error from uploader", event);
+	});
+
+
+	// --------------------------------------------------------------------------------------------------------------
+	// Socket connection
+
+	
 	// persist session
 	sessionStore.saveSession(socket.sessionID, {
 		userID: socket.userID,
@@ -323,7 +380,7 @@ io.on('connection', socket => {
 		message.save().then(() => {
 
 			// Send message to Whatsapp
-			messageUtils.sendWtsaMessage( data.sender, data.receiver, data.msg );
+			messageUtils.sendWtsaMessage( data.sender, data.receiver, data.msg, data.filetype, data.name );
 
 			// Send to message
 			const users = sessionStore.getAllUsers();
