@@ -202,8 +202,10 @@ const server = express()
 			// Save message to mongodb
 			let msg = data.msg;
 			let filetype;
+			let name;
 			if( data.incomingPayload.MediaUrl0 != undefined ) {
 				msg = data.incomingPayload.MediaUrl0;
+				name = msg;
 				filetype = "IMAGE";
 			}
 			const messageData = {
@@ -212,7 +214,8 @@ const server = express()
 				"sender": data.sender.id,
 				"receiver": data.receiver.id,
 				"msgtype": data.msgtype,
-				filetype
+				filetype,
+				name
 			}
 			
 			const message = new MessagesCollection( messageData );
