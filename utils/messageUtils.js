@@ -48,6 +48,7 @@ class MessageUtils {
                             })
                             .catch(function (err) {
                                 console.log("-- The message couldn't be sent to Whatsapp." + err.message );
+                                console.log( err );
                                 console.log( data );
                             });
                     }
