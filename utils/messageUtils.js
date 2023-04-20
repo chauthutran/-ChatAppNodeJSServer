@@ -1,5 +1,4 @@
-const WTSA_URL = "https://api-dev.psi-connect.org/TTS.wtsaMsgSend";
-// const WTSA_URL = "https://api-test.psi-connect.org/TTS.wtsaMsgSend";
+
 const axios = require('axios');
 
 const {ServerUtils} = require("./utils");
@@ -8,8 +7,10 @@ const MessagesCollection = require("../models/messages");
 const UsersCollection = require("../models/users");
 
 class MessageUtils {
-    constructor( ) {
+    constructor( url ) {
+        this.WTSA_URL = url;
 	}
+    
 
 	sendWtsaMessage( sendUsername, receiveUsername, message, fileType, fileUrl ) {
         console.log("--- Whatsapp sending data ");
@@ -42,7 +43,7 @@ class MessageUtils {
                             } 
                         }
 
-                        axios.post( WTSA_URL, data )
+                        axios.post( this.WTSA_URL, data )
                             .then(function (response) {
                                 console.log("-- The message is sent to Whatsapp.");
                             })

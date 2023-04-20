@@ -17,7 +17,7 @@ const {ServerUtils} = require("./utils/utils");
 const serverUtils = new ServerUtils();
 
 const {MessageUtils} = require("./utils/messageUtils");
-const messageUtils = new MessageUtils();
+const messageUtils = new MessageUtils("https://api-test.psi-connect.org/TTS.wtsaMsgSend");
 
 
 const mongoose = require("mongoose");
