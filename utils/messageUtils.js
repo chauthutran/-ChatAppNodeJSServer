@@ -1,5 +1,5 @@
-// const WTSA_URL = "https://api-dev.psi-connect.org/TTS.whatsappMsgTest";
 const WTSA_URL = "https://api-dev.psi-connect.org/TTS.wtsaMsgSend";
+// const WTSA_URL = "https://api-test.psi-connect.org/TTS.wtsaMsgSend";
 const axios = require('axios');
 
 const {ServerUtils} = require("./utils");
@@ -27,7 +27,7 @@ class MessageUtils {
                 {
                     const senderUser = serverUtils.findItemFromList( list, sendUsername, "username" );
                     const receiveUser = serverUtils.findItemFromList( list, receiveUsername, "username" );
-                
+
                     if( receiveUser.wtsa != undefined )
                     {
                         const data = {
