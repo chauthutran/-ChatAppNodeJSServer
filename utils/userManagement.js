@@ -8,60 +8,37 @@ const UserManagement = class {
 	constructor() {
 	}
 
-	createIfNotExist( username1, username2, exeFunc ) {
+	/**
+	 * 
+	 * @param data { contactUser: {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}  }
+	 */
+	createUserList( data, exeFunc ) {
+		var me = this;
+
+		// var usernameList = userList.map(function(user){ return { username: user.username}; });
 		UsersCollection.find().or([
-			{ username: username1 },
-			{ username: username2 }
+			{ username: data.userInfo.username },
+			{ username: data.contactUser.username }
 		]).then(( list ) => {
-			var me = this;
 			if( list.length == 1 )
 			{
-				if( list[0].username == username1 )
+				if( list[0].username == data.contactUser.username ) // contactUser existed, create userInfo
 				{
-					this.createUserByUsername(username2, username1, function(newUserData2){
-						me.updateContact( list[0], username2, function( newUserData1 ) {
-							exeFunc( [newUserData1, newUserData2] );
-						} );
-					} );
-					
+					me.createNewUserWithContactUser(data.userInfo, list[0], exeFunc );
 				}
-				else if( list[0].username == username2 )
+				else if( list[0].username == username2 ) // userInfo existed, create contactUser
 				{
-					this.createUserByUsername(username1, username2, function( newUserData1 ){
-						me.updateContact( list[0], username1, function( newUserData2 ) {
-							exeFunc( [newUserData1, newUserData2] );
-						} );
-					} );
+					me.createNewUserWithContactUser(data.contactUser, list[0], exeFunc );
 				}
 			}
-			else if( list.length == 0 )
+			else if( list.length == 0 ) // Need to create userInfo and contactUser
 			{
-				this.createUserByUsername(me.username1, username2, function( userData1 ){
-					me.createUserByUsername(me.username2, username1, function( userData2 ){
-						exeFunc([userData1, userData2]); // Should put the userData for username1 and username2
-					});
-				});
-				
+				// Create userInfo with relationship with contactUser
+				me.createNewUserAndContactUser( data.userInfo, data.contactUser, exeFunc );
 			}
-			else if( list.length == 2 )
+			else if( list.length == 2 ) // userInfo and contactUser existed, Need to update the contact list 
 			{
-				// Check ContactList and update
-				if( list[0].username == username1 )
-				{
-					me.updateContact( list[0], username2, function( userData1 ) {
-						me.updateContact( list[1], username1, function( userData2 ){
-							exeFunc([userData1, userData2]);
-						});
-					});
-				}
-				else
-				{
-					me.updateContact( list[0], username1, function( userData1 ) {
-						me.updateContact( list[1], username2, function(userData2){
-							exeFunc([userData1, userData2]);
-						} )
-					})
-				}
+				me.updateContactList( list[0], list[1], exeFunc );
 			}
 		});
 	};
@@ -112,91 +89,130 @@ const UserManagement = class {
 			{
 				if( list[0].username == username1 )
 				{
-					me.createUser(userData2, function(newUserData2){
-						me.updateContact( list[0], username2, function( newUserData1 ) {
-							exeFunc( [newUserData1, newUserData2] );
-						} );
-					} );
-					
+					me.createNewUserWithContactUser( userData2, list[0], exeFunc);
 				}
 				else if( list[0].username == username2 )
 				{
-					me.createUser(userData1, function( newUserData1 ){
-						me.updateContact( list[0], username1, function( newUserData2 ) {
-							exeFunc( [newUserData1, newUserData2] );
-						} );
-					} );
+					me.createNewUserWithContactUser( userData1, list[0], exeFunc);
 				}
 			}
 			else if( list.length == 0 )
 			{
-				me.createUser(userData1, function( newUserData1 ){
-					me.createUser(userData2, function( newUserData2 ){
-						exeFunc([newUserData1, newUserData2]); // Should put the userData for username1 and username2
-					});
-				});
-				
+				me.createNewUserAndContactUser( userData1, userData2 );
 			}
 			else if( list.length == 2 )
 			{
-				// Check ContactList and update
-				if( list[0].username == username1 )
-				{
-					me.updateContact( list[0], username2, function( userData1 ) {
-						me.updateContact( list[1], username1, function( userData2 ){
-							exeFunc([userData1, userData2]);
-						});
-					});
-				}
-				else
-				{
-					me.updateContact( list[0], username1, function( userData1 ) {
-						me.updateContact( list[1], username2, function(userData2){
-							exeFunc([userData1, userData2]);
-						} )
-					})
-				}
+				me.updateContactList( list[0], list[1], exeFunc);
 			}
 		}).catch(function (err) {
 			console.log("-- Couldn't create users because " + err.message );
 		});
 	};
 
-	createUserByUsername( username, contact, exeFunc ) {
-		const data = {
-			username: username,
-			fullName: username,
-			contacts: [{contactName: contact, hasNewMessages: false}]
-		}
+	createNewUserWithContactUser( userData, contactData, exeFunc) {
+		var me = this;
+		userData.contacts = [{contactName: contactData.username, hasNewMessages: false}];
+		me.createUser(userData, function(responseUserData){
+			if( responseUserData.status=="success" )
+			{
+				me.updateContact( contactData, userData.username, function( responseContactData ) {
+					if( responseContactData.status=="success" )
+					{
+						exeFunc( {status:"success", data: {user1: responseUserData.data, user2: responseContactData.data}} );
+					}
+					else
+					{
+						exeFunc(responseContactData);
+					}
+				} );
+			}
+			else
+			{
+				exeFunc(responseUserData);
+			}
+		});
+	};
+
+	createNewUserAndContactUser( userData, contactData, exeFunc) {
+		var me = this;
+		userData.contacts = [{contactName: contactData.username, hasNewMessages: false}];
+		me.createUser(userData, function(responseUserData){
+			if( responseUserData.status=="success" )
+			{
+				me.createUser(contactData, function( responseContactData ) {
+					if( responseContactData.status=="success" )
+					{
+						exeFunc( {status:"success", data: {user1: responseUserData.data, user2: responseContactData.username}} );
+					}
+					else
+					{
+						exeFunc(responseContactData);
+					}
+				} );
+			}
+			else
+			{
+				exeFunc(responseUserData);
+			}
+		});
+	};
+
+	createUserByUsername( jsonUser, contactUsername, exeFunc ) {
+		let data = jsonUser;
+		data.contacts =  [{contactName: contactUsername, hasNewMessages: false}];
 
 		// Save message to mongodb
 		this.createUser( data, exeFunc );
 	}
 
+	updateContactList( userData1, userData2, exeFunc ) {
+		var me = this;
+		me.updateContact( userData1, userData2.username, function( responseUserData1 ) {
+			if( responseUserData1.status=="success" )
+			{
+				me.updateContact( userData2, userData1.username, function( responseUserData2 ){
+					if( responseUserData1.status=="success" )
+					{
+						exeFunc( {status:"success", data: {user1: responseUserData1.data, user2: responseUserData2.username}} );
+					}
+					else
+					{
+						exeFunc(responseUserData2);
+					}
+				});
+			}
+			else 
+			{
+				exeFunc(responseUserData1);
+			}
+		});
+	}
 	
 	createUser( userData, exeFunc ) {
-		// Save message to mongodb
 		const user = new UsersCollection( userData );
-		user.save(function(a, newUser, c){
-			if( exeFunc ) exeFunc( newUser );
-		})
+		user.save(function(err,result){ 
+			if (err){ 
+				if( exeFunc ) exeFunc({status: "error", msg: err});
+			} 
+			else{ 
+				if( exeFunc ) exeFunc({status: "success", data: result}) 
+			} 
+		}) 
 	}
 
 	updateContact( userData, contactName, exeFunc ) {
 		const found = serverUtils.findItemFromList( userData.contacts, contactName, "contactName");
-		if( !found )
+		if( !found ) // contactName doesn't exsit in userData ==> add this 'contactName'
 		{
 			userData.contacts.push({ contactName: contactName, hasNewMessages: false } );
-
 			userData.save(function(){
-				if( exeFunc ) exeFunc( userData );
+				if( exeFunc ) exeFunc( {status: "success", data: userData} );
 			});
 		}
-		else
+		else // contactName exsits in userData ==> DON'T DO ANYTHING
 		{
-			if( exeFunc ) exeFunc( userData );
+			if( exeFunc ) exeFunc( {status: "success", data: userData} );
 		}
-		
 	}
 };
 

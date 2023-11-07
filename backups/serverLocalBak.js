@@ -123,7 +123,7 @@ const server = express()
 	const username2 = req.body.username2;
 
 	const userManagement = new UserManagement();
-	userManagement.createIfNotExist(  username1, username2, function(){
+	userManagement.createUserList(  username1, username2, function(){
 		res.send({msg: `The user is created.`, "status": "SUCCESS"});
 	})
 })
@@ -406,7 +406,7 @@ io.on('connection', socket => {
 	
 	socket.on('create_new_user', ( data ) => {
 		const userManagement = new UserManagement();
-		userManagement.createIfNotExist( data.username1, data.username2, function(userList){
+		userManagement.createUserList( data.username1, data.username2, function(userList){
 			if(socketList.hasOwnProperty(data.username2)){
 				const found = serverUtils.findItemFromList( userList, data.username1, "username" );
 				socketList[data.username2].emit('new_user_created', found);

@@ -26,8 +26,8 @@ const UsersCollection = require("./models/users");
 const UserManagement = require('./utils/userManagement');
 
 const PORT = process.env.PORT || 3111;
-// const clientURL = 'http://127.0.0.1:8887'; 
-const clientURL = "https://pwa-dev.psi-connect.org";
+const clientURL = 'http://127.0.0.1:8887'; 
+// const clientURL = "https://pwa-dev.psi-connect.org";
 // const clientURL = "https://pwa-test.psi-connect.org";
 const INDEX = '/index.html';
 let socketList = [];
@@ -167,20 +167,35 @@ const server = express()
 	
 })
 .post("/users", (req, res) => {
-	const username1 = req.body.username1;
-	const username2 = req.body.username2;
+	
+	// req.body ==> { contactUser: {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}  }
 
-	try
+	if( req.body.userInfo == undefined || req.body.userInfo.username == undefined
+		|| req.body.contactUser == undefined || req.body.contactUser.username == undefined)
 	{
-		const userManagement = new UserManagement();
-		userManagement.createIfNotExist(  username1, username2, function(){
-			res.send({msg: `The user is created.`, "status": "SUCCESS"});
-		})
+		res.send({msg: `The payload structure is wrong.`, "status": "FAILED"});
 	}
-	catch( ex )
+	else
 	{
-		res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
-		console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+		// const username1 = req.body.username1;
+		// const username2 = req.body.username2;
+
+		const data = req.body;
+		const username1 = req.body.contactUser.username;
+		const username2 = req.body.userInfo.username;
+
+		try
+		{
+			const userManagement = new UserManagement();
+			userManagement.createUserList(data, function(){
+				res.send({msg: `The user is created.`, "status": "SUCCESS"});
+			})
+		}
+		catch( ex )
+		{
+			res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
+			console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+		}
 	}
 	
 })
@@ -213,53 +228,61 @@ const server = express()
 		const data = req.body;
 
 		const userManagement = new UserManagement();
-		userManagement.createWtsaUserIfNotExist( data.sender, data.receiver, function(userList){
-			// Save message to mongodb
-			let msg = data.msg;
-			let filetype;
-			let name;
-			if( data.incomingPayload.MediaUrl0 != undefined ) {
-				msg = data.incomingPayload.MediaUrl0;
-				name = msg;
-				filetype = "IMAGE";
-			}
-			const messageData = {
-				"datetime": data.datetime,
-				"msg": msg,
-				"sender": data.sender.id,
-				"receiver": data.receiver.id,
-				"msgtype": data.msgtype,
-				filetype,
-				name
-			}
-			
-			const message = new MessagesCollection( messageData );
-			message.save().then(() => {
-				const to = messageData.receiver;
-				if(socketList.hasOwnProperty(to)){
-					socketList[to].emit( 'sendMsg', messageData );
-
-					// ---------------------------------------------------
-					// Check new contact
-					var userInfo0 = userList[0];
-					var userInfo1 = userList[1];
-
-					if(socketList.hasOwnProperty(userInfo0)){
-						socketList[userInfo0].emit( 'receive_message', {userData: userInfo0, newContact: userInfo1} );
-					}
-
-					if(socketList.hasOwnProperty(userInfo1)){
-						socketList[userInfo1].emit( 'receive_message', {userData: userInfo1, newContact: userInfo0} );
-					}
+		userManagement.createWtsaUserIfNotExist( data.sender, data.receiver, function(responseData){
+			if( responseData.status == "success" )
+			{
+				// Save message to mongodb
+				let msg = data.msg;
+				let filetype;
+				let name;
+				if( data.incomingPayload.MediaUrl0 != undefined ) {
+					msg = data.incomingPayload.MediaUrl0;
+					name = msg;
+					filetype = "IMAGE";
 				}
-				res.send({msg:"Data is sent.", "status": "SUCCESS"});
-				console.log("--- Data is sent successfully.");
-			})
-			// .catch( saveExp )
-			// {
-			// 	res.send({ status: "ERROR", msg: saveExp.message });
-			// 	console.log("--- ERROR ( while sending message ) " + saveExp.message );
-			// };
+				const messageData = {
+					"datetime": data.datetime,
+					"msg": msg,
+					"sender": data.sender.id,
+					"receiver": data.receiver.id,
+					"msgtype": data.msgtype,
+					filetype,
+					name
+				}
+				
+				const message = new MessagesCollection( messageData );
+				message.save().then(() => {
+					const to = messageData.receiver;
+					if(socketList.hasOwnProperty(to)){
+						socketList[to].emit( 'sendMsg', messageData );
+
+						// ---------------------------------------------------
+						// Check new contact
+						var userInfo0 = responseData.data.user1;
+						var userInfo1 = responseData.data.user2;
+
+						if(socketList.hasOwnProperty(userInfo0)){
+							socketList[userInfo0].emit( 'receive_message', {userData: userInfo0, newContact: userInfo1} );
+						}
+
+						if(socketList.hasOwnProperty(userInfo1)){
+							socketList[userInfo1].emit( 'receive_message', {userData: userInfo1, newContact: userInfo0} );
+						}
+					}
+					res.send({msg:"Data is sent.", "status": "SUCCESS"});
+					console.log("--- Data is sent successfully.");
+				})
+				// .catch( saveExp )
+				// {
+				// 	res.send({ status: "ERROR", msg: saveExp.message });
+				// 	console.log("--- ERROR ( while sending message ) " + saveExp.message );
+				// };
+			}
+			else
+			{
+				res.send(responseData);
+				console.log("--- Users are created failed." + responseData.msg);
+			}
 		})
 	}
 	catch( createExp )
@@ -268,7 +291,7 @@ const server = express()
 		console.log("--- ERROR ( while sending message ) " + createExp.message );
 	}
 })
-.listen(PORT, () => console.log(`Listening on ${PORT}`));
+.listen(PORT, () => console.log(`Listening on ${PORT}, Client URL : ${clientURL}` ));
 
 
 // =======================================================================================================
@@ -490,15 +513,16 @@ io.on('connection', socket => {
 	
 	socket.on('create_new_user', ( data ) => {
 		const userManagement = new UserManagement();
-		userManagement.createIfNotExist( data.username1, data.username2, function(userList){
-			if(socketList.hasOwnProperty(data.username2)){
-				const found = serverUtils.findItemFromList( userList, data.username1, "username" );
-				socketList[data.username2].emit('new_user_created', found);
-			}
-
-			if(socketList.hasOwnProperty(data.username1)){
-				const found = serverUtils.findItemFromList( userList, data.username2, "username" );
-				socketList[data.username1].emit('new_user_created', found);
+		userManagement.createUserList( data, function(responseData){
+			if( responseData.status == "success" )
+			{
+				if(socketList.hasOwnProperty(responseData.data.user1.username)){
+					socketList[responseData.data.user1.username].emit('new_user_created', responseData.data.user2);
+				}
+	
+				if(socketList.hasOwnProperty(responseData.data.user2.username)){
+					socketList[responseData.data.user2.username].emit('new_user_created', responseData.data.user1);
+				}
 			}
 		})
 	});

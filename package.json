@@ -4,7 +4,7 @@
   "description": "PWA Chat App",
   "main": "siChatSrv.js",
   "scripts": {
-    "start": "node server",
+    "start": "node siChatSrvDEV",
     "dev": "nodemon server"
   },
   "author": "Tran Chau",

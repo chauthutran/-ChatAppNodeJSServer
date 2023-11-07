@@ -20,6 +20,6 @@ const userSchema = new mongoose.Schema({
 	}
 })
 
-// const UsersCollection = mongoose.model('users', userSchema);
-const UsersCollection = mongoose.model('users1', userSchema);
+// const UsersCollection = mongoose.model('users1', userSchema);
+const UsersCollection = mongoose.model('wfaChatUsers', userSchema);
 module.exports = UsersCollection;

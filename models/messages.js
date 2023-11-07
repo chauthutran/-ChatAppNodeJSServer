@@ -30,5 +30,5 @@ const msgSchema = new mongoose.Schema({
     }
 })
 
-const MessagesCollection = mongoose.model('messages', msgSchema);
+const MessagesCollection = mongoose.model('wfaChatMsgs', msgSchema);
 module.exports = MessagesCollection;
