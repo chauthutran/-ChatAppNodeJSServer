@@ -24,8 +24,8 @@ const UsersCollection = require("./models/users");
 const UserManagement = require('./utils/userManagement');
 
 const PORT = process.env.PORT || 3111;
-const clientURL = 'http://127.0.0.1:8887'; 
-// const clientURL = "https://pwa-dev.psi-connect.org";
+// const clientURL = 'http://127.0.0.1:8887'; 
+const clientURL = "https://pwa-dev.psi-connect.org";
 // const clientURL = "https://pwa-test.psi-connect.org";
 const INDEX = '/index.html';
 let socketList = [];
