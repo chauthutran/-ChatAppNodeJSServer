@@ -4,9 +4,6 @@ const express = require('express');
 var cors = require('cors');
 
 var SocketIOFileUpload = require("socketio-file-upload");
-const fs = require('fs')
-
-const { writeFile } = require("fs");
 
 const bodyParser = require("body-parser");
 const crypto = require("crypto");
@@ -135,18 +132,9 @@ const server = express()
 					fullName: username
 				}
 				const user = new UsersCollection( curUser );
-				// user.save().then(() => {
-				// 	res.send({status: "SUCCESS", curUser: curUser, contacts: []});
-				// }).catch( saveExp )
-				// {
-				// 	console.log(saveExp);
-				// 	res.send({status: "ERROR", msg: `Couldn't create user with username ${username}.` + saveExp.message});
-				// 	console.log(`============================= GET /users/${username} throws error. Couldn't create user with username ${username}.` + saveExp.message);
-				// }
 				user.save(function (saveExp, product) {
 					if (saveExp)
 					{
-						console.log(saveExp);
 						res.send({status: "ERROR", msg: `Couldn't create user with username ${username}.` + saveExp.message});
 						console.log(`============================= GET /users/${username} throws error. Couldn't create user with username ${username}.` + saveExp.message);
 					}
@@ -167,20 +155,102 @@ const server = express()
 	
 })
 .post("/users", (req, res) => {
+	
 	const username1 = req.body.username1;
 	const username2 = req.body.username2;
+
+	const userList = [
+		{
+			username: username1,
+			fullName: username1,
+			contacts: [{
+				contactName: username2,
+				hasNewMessages: false
+			}]
+		},
+		{
+			username: username2,
+			fullName: username2,
+			contacts: [{
+				contactName: username1,
+				hasNewMessages: false
+			}]
+		}
+	];
 
 	try
 	{
 		const userManagement = new UserManagement();
-		userManagement.createUserList(  username1, username2, function(){
-			res.send({msg: `The user is created.`, "status": "SUCCESS"});
-		})
+		userManagement.createUserList(userList, function(responseUserList){
+			let msg = "";
+			var errorUsernameList = Object.keys(responseUserList.errorList);
+			if( errorUsernameList.length > 0 )
+			{
+				msg += `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
+				for( var username in responseUserList.errorList )
+				{
+					msg += username + ": " + responseUserList.errorList[username];
+				}
+				res.send({msg, "status": "ERROR"});
+			}
+			else
+			{
+
+				res.send({msg: `Users are created.`, "status": "SUCCESS"});
+			}
+		});
 	}
 	catch( ex )
 	{
 		res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
 		console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+	}
+	
+})
+.post("/userList", (req, res) => {
+	
+	// req.body ==>  contactUser: {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}  }
+
+	// req.body ==>  [ {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}, ... ]
+
+	if( req.body.length < 0)
+	{
+		res.send({msg: `The payload structure is wrong.`, "status": "ERROR"});
+	}
+	else
+	{
+		const data = req.body;
+		// const username1 = req.body.contactUser.username;
+		// const username2 = req.body.userInfo.username;
+
+		try
+		{
+			const userManagement = new UserManagement();
+			userManagement.createUserList(data, function(responseUserList){
+				let msg = "";
+				var errorUsernameList = Object.keys(responseUserList.errorList);
+				if( errorUsernameList.length > 0 )
+				{
+					msg += `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
+					for( var username in responseUserList.errorList )
+					{
+						msg += username + ": " + responseUserList.errorList[username];
+					}
+					res.send({msg, "status": "ERROR"});
+				}
+				else
+				{
+
+					res.send({msg: `Users are created.`, "status": "SUCCESS"});
+				}
+			})
+		}
+		catch( ex )
+		{
+			var usernameList = data.map(function(item){return item.username }).join(", ");
+			res.send({msg: `The users ${usernameList} couldn't be created. ${ex.message}`, "status": "ERROR"});
+			console.log(`============================= POST /users - The users ${usernameList} couldn't be created. ${ex.message}`);
+		}
 	}
 	
 })
@@ -213,53 +283,52 @@ const server = express()
 		const data = req.body;
 
 		const userManagement = new UserManagement();
-		userManagement.createWtsaUserIfNotExist( data.sender, data.receiver, function(userList){
-			// Save message to mongodb
-			let msg = data.msg;
-			let filetype;
-			let name;
-			if( data.incomingPayload.MediaUrl0 != undefined ) {
-				msg = data.incomingPayload.MediaUrl0;
-				name = msg;
-				filetype = "IMAGE";
-			}
-			const messageData = {
-				"datetime": data.datetime,
-				"msg": msg,
-				"sender": data.sender.id,
-				"receiver": data.receiver.id,
-				"msgtype": data.msgtype,
-				filetype,
-				name
-			}
+		userManagement.createWtsaUserIfNotExist( data.sender, data.receiver, function(responseData){
 			
-			const message = new MessagesCollection( messageData );
-			message.save().then(() => {
-				const to = messageData.receiver;
-				if(socketList.hasOwnProperty(to)){
-					socketList[to].emit( 'sendMsg', messageData );
-
-					// ---------------------------------------------------
-					// Check new contact
-					var userInfo0 = userList[0];
-					var userInfo1 = userList[1];
-
-					if(socketList.hasOwnProperty(userInfo0)){
-						socketList[userInfo0].emit( 'receive_message', {userData: userInfo0, newContact: userInfo1} );
-					}
-
-					if(socketList.hasOwnProperty(userInfo1)){
-						socketList[userInfo1].emit( 'receive_message', {userData: userInfo1, newContact: userInfo0} );
-					}
+			if( Object.keys(responseData.errorList).length == 0)
+			{
+				// Save message to mongodb
+				let msg = data.msg;
+				let filetype;
+				let name;
+				if( data.incomingPayload != undefined && data.incomingPayload.MediaUrl0 != undefined ) {
+					msg = data.incomingPayload.MediaUrl0;
+					name = msg;
+					filetype = "IMAGE";
 				}
-				res.send({msg:"Data is sent.", "status": "SUCCESS"});
-				console.log("--- Data is sent successfully.");
-			})
-			// .catch( saveExp )
-			// {
-			// 	res.send({ status: "ERROR", msg: saveExp.message });
-			// 	console.log("--- ERROR ( while sending message ) " + saveExp.message );
-			// };
+				const messageData = {
+					"datetime": data.datetime,
+					"msg": msg,
+					"sender": data.sender.id,
+					"receiver": data.receiver.id,
+					"msgtype": data.msgtype,
+					filetype,
+					name
+				}
+				
+				const message = new MessagesCollection( messageData );
+				message.save().then(() => {
+					
+					const to = messageData.receiver;
+					console.log("socketList.hasOwnProperty(to) : " + socketList.hasOwnProperty(to) );
+					if(socketList.hasOwnProperty(to)){
+						socketList[to].emit( 'sendMsg', messageData );
+					};
+					
+					const from = messageData.sender;
+					if(socketList.hasOwnProperty(from)){
+						socketList[from].emit( 'sendMsg', messageData );
+					};
+					
+					res.send({msg:"Data is sent.", "status": "SUCCESS"});
+					console.log("--- Data is sent successfully.");
+				});
+			}
+			else
+			{
+				res.send(responseData);
+				console.log("--- Users are created failed." + responseData.msg);
+			}
 		})
 	}
 	catch( createExp )
@@ -268,7 +337,7 @@ const server = express()
 		console.log("--- ERROR ( while sending message ) " + createExp.message );
 	}
 })
-.listen(PORT, () => console.log(`Listening on ${PORT}`));
+.listen(PORT, () => console.log(`Listening on ${PORT}, Client URL : ${clientURL}` ));
 
 
 // =======================================================================================================
@@ -488,17 +557,18 @@ io.on('connection', socket => {
 	});
 
 	
-	socket.on('create_new_user', ( data ) => {
+	socket.on('create_new_user', ( userList ) => {
 		const userManagement = new UserManagement();
-		userManagement.createUserList( data.username1, data.username2, function(userList){
-			if(socketList.hasOwnProperty(data.username2)){
-				const found = serverUtils.findItemFromList( userList, data.username1, "username" );
-				socketList[data.username2].emit('new_user_created', found);
-			}
+		// successList": me.successList, "errorList
 
-			if(socketList.hasOwnProperty(data.username1)){
-				const found = serverUtils.findItemFromList( userList, data.username2, "username" );
-				socketList[data.username1].emit('new_user_created', found);
+		userManagement.createUserList( userList, function(responseData){
+			var savedUserList = Object.values( responseData.successList );
+			for( let i=-0; i<savedUserList.length; i++ )
+			{
+				let username = savedUserList[i].username;
+				if(socketList.hasOwnProperty(username)){
+					socketList[username].emit('new_user_created', savedUserList);
+				}
 			}
 		})
 	});

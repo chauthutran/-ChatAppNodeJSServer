@@ -312,25 +312,16 @@ const server = express()
 				message.save().then(() => {
 					
 					const to = messageData.receiver;
-					console.log("socketList.hasOwnProperty(to) : " + socketList.hasOwnProperty(to) );
 					if(socketList.hasOwnProperty(to)){
 						socketList[to].emit( 'sendMsg', messageData );
 					};
-						// // ---------------------------------------------------
-						// // Check new contact
 
-						// var userList = Object.values(responseData.successList);
-						// var userInfo0 = userList[0];
-						// var userInfo1 = userList[1];
-
-						// if(socketList.hasOwnProperty(userInfo0.username)){
-						// 	socketList[userInfo0.username].emit( 'receive_message', {userData: userInfo0, newContact: userInfo1} );
-						// }
-
-						// if(socketList.hasOwnProperty(userInfo1.username)){
-						// 	socketList[userInfo1.username].emit( 'receive_message', {userData: userInfo1, newContact: userInfo0} );
-						// }
-					// }
+					
+					const from = messageData.sender;
+					if(socketList.hasOwnProperty(from)){
+						socketList[from].emit( 'sendMsg', messageData );
+					};
+					
 					res.send({msg:"Data is sent.", "status": "SUCCESS"});
 					console.log("--- Data is sent successfully.");
 				});
