@@ -129,27 +129,6 @@ const UserManagement = class {
 			me.saveUsers( jsonUserList, function(){
 				exeFunc({"successList": me.successList, "errorList": me.errorList });
 			} );
-
-			// // Create/Update relationships
-			// if( list.length == 1 )
-			// {
-			// 	if( list[0].username == username1 )
-			// 	{
-			// 		me.createNewUserWithContactUser( userData2, list[0], exeFunc);
-			// 	}
-			// 	else if( list[0].username == username2 )
-			// 	{
-			// 		me.createNewUserWithContactUser( userData1, list[0], exeFunc);
-			// 	}
-			// }
-			// else if( list.length == 0 )
-			// {
-			// 	me.createNewUserAndContactUser( userData1, userData2 );
-			// }
-			// else if( list.length == 2 )
-			// {
-			// 	me.updateContactList( list[0], list[1], exeFunc);
-			// }
 		}).catch(function (err) {
 			console.log("-- Couldn't create users because " + err.message );
 		});

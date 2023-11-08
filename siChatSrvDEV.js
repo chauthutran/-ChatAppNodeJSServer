@@ -158,30 +158,100 @@ const server = express()
 })
 .post("/users", (req, res) => {
 	
-	// req.body ==> { contactUser: {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}  }
+	const username1 = req.body.username1;
+	const username2 = req.body.username2;
 
-	if( req.body.userInfo == undefined || req.body.userInfo.username == undefined
-		|| req.body.contactUser == undefined || req.body.contactUser.username == undefined)
+	const userList = [
+		{
+			username: username1,
+			fullName: username1,
+			contacts: [{
+				contactName: username2,
+				hasNewMessages: false
+			}]
+		},
+		{
+			username: username2,
+			fullName: username2,
+			contacts: [{
+				contactName: username1,
+				hasNewMessages: false
+			}]
+		}
+	];
+
+	try
 	{
-		res.send({msg: `The payload structure is wrong.`, "status": "FAILED"});
+		const userManagement = new UserManagement();
+		userManagement.createUserList(userList, function(responseUserList){
+			let msg = "";
+			var errorUsernameList = Object.keys(responseUserList.errorList);
+			if( errorUsernameList.length > 0 )
+			{
+				msg += `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
+				for( var username in responseUserList.errorList )
+				{
+					msg += username + ": " + responseUserList.errorList[username];
+				}
+				res.send({msg, "status": "ERROR"});
+			}
+			else
+			{
+
+				res.send({msg: `Users are created.`, "status": "SUCCESS"});
+			}
+		});
+	}
+	catch( ex )
+	{
+		res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
+		console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+	}
+	
+})
+.post("/userList", (req, res) => {
+	
+	// req.body ==>  contactUser: {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}  }
+
+	// req.body ==>  [ {username, Wtsa, fullName, ...}, userInfo: {username, Wtsa, fullName, ...}, ... ]
+
+	if( req.body.length < 0)
+	{
+		res.send({msg: `The payload structure is wrong.`, "status": "ERROR"});
 	}
 	else
 	{
 		const data = req.body;
-		const username1 = req.body.contactUser.username;
-		const username2 = req.body.userInfo.username;
+		// const username1 = req.body.contactUser.username;
+		// const username2 = req.body.userInfo.username;
 
 		try
 		{
 			const userManagement = new UserManagement();
-			userManagement.createUserList(data, function(){
-				res.send({msg: `The user is created.`, "status": "SUCCESS"});
+			userManagement.createUserList(data, function(responseUserList){
+				let msg = "";
+				var errorUsernameList = Object.keys(responseUserList.errorList);
+				if( errorUsernameList.length > 0 )
+				{
+					msg += `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
+					for( var username in responseUserList.errorList )
+					{
+						msg += username + ": " + responseUserList.errorList[username];
+					}
+					res.send({msg, "status": "ERROR"});
+				}
+				else
+				{
+
+					res.send({msg: `Users are created.`, "status": "SUCCESS"});
+				}
 			})
 		}
 		catch( ex )
 		{
-			res.send({msg: `The users ${username1} and ${username2} couldn't be created. ${ex.message}`, "status": "ERROR"});
-			console.log(`============================= POST /users - The users ${username1} and ${username2} couldn't be created. ${ex.message}`);
+			var usernameList = data.map(function(item){return item.username }).join(", ");
+			res.send({msg: `The users ${usernameList} couldn't be created. ${ex.message}`, "status": "ERROR"});
+			console.log(`============================= POST /users - The users ${usernameList} couldn't be created. ${ex.message}`);
 		}
 	}
 	
