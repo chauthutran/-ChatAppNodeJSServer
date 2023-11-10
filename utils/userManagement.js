@@ -10,6 +10,7 @@ const UserManagement = class {
 		this.processingIdx = 0;
 		this.successList = {};
 		this.errorList = {};
+		this.existedList = {};
 	}
 
 	/**
@@ -32,9 +33,13 @@ const UserManagement = class {
 				{
 					jsonUserList.push(userData);
 				}
+				else
+				{
+					existedList[userData.username] = found;
+				}
 			}
 
-			// Save list of user
+			// Save list of users
 			me.saveUsers( jsonUserList, function(){
 				exeFunc({"successList": me.successList, "errorList": me.errorList });
 			} );
@@ -134,85 +139,6 @@ const UserManagement = class {
 		});
 	};
 	
-	createNewUserWithContactUser( userData, contactData, exeFunc) {
-		var me = this;
-		userData.contacts = [{contactName: contactData.username, hasNewMessages: false}];
-		me.createUser(userData, function(responseUserData){
-			if( responseUserData.status=="success" )
-			{
-				me.updateContact( contactData, userData.username, function( responseContactData ) {
-					if( responseContactData.status=="success" )
-					{
-						exeFunc( {status:"success", data: {user1: responseUserData.data, user2: responseContactData.data}} );
-					}
-					else
-					{
-						exeFunc(responseContactData);
-					}
-				} );
-			}
-			else
-			{
-				exeFunc(responseUserData);
-			}
-		});
-	};
-
-	createNewUserAndContactUser( userData, contactData, exeFunc) {
-		var me = this;
-		userData.contacts = [{contactName: contactData.username, hasNewMessages: false}];
-		me.createUser(userData, function(responseUserData){
-			if( responseUserData.status=="success" )
-			{
-				me.createUser(contactData, function( responseContactData ) {
-					if( responseContactData.status=="success" )
-					{
-						exeFunc( {status:"success", data: {user1: responseUserData.data, user2: responseContactData.username}} );
-					}
-					else
-					{
-						exeFunc(responseContactData);
-					}
-				} );
-			}
-			else
-			{
-				exeFunc(responseUserData);
-			}
-		});
-	};
-
-	createUserByUsername( jsonUser, contactUsername, exeFunc ) {
-		let data = jsonUser;
-		data.contacts =  [{contactName: contactUsername, hasNewMessages: false}];
-
-		// Save message to mongodb
-		this.createUser( data, exeFunc );
-	}
-
-	updateContactList( userData1, userData2, exeFunc ) {
-		var me = this;
-		me.updateContact( userData1, userData2.username, function( responseUserData1 ) {
-			if( responseUserData1.status=="success" )
-			{
-				me.updateContact( userData2, userData1.username, function( responseUserData2 ){
-					if( responseUserData1.status=="success" )
-					{
-						exeFunc( {status:"success", data: {user1: responseUserData1.data, user2: responseUserData2.username}} );
-					}
-					else
-					{
-						exeFunc(responseUserData2);
-					}
-				});
-			}
-			else 
-			{
-				exeFunc(responseUserData1);
-			}
-		});
-	}
-	
 	createUser( userData, doneFunc ) {
 		let me = this;
 
@@ -231,21 +157,6 @@ const UserManagement = class {
 				doneFunc();
 			}
 		});
-	}
-
-	updateContact( userData, contactName, exeFunc ) {
-		const found = serverUtils.findItemFromList( userData.contacts, contactName, "contactName");
-		if( !found ) // contactName doesn't exsit in userData ==> add this 'contactName'
-		{
-			userData.contacts.push({ contactName: contactName, hasNewMessages: false } );
-			userData.save(function(){
-				if( exeFunc ) exeFunc( {status: "success", data: userData} );
-			});
-		}
-		else // contactName exsits in userData ==> DON'T DO ANYTHING
-		{
-			if( exeFunc ) exeFunc( {status: "success", data: userData} );
-		}
 	}
 };
 
