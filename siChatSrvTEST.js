@@ -131,6 +131,7 @@ const server = express()
 					contacts: [],
 					fullName: username
 				}
+
 				const user = new UsersCollection( curUser );
 				user.save(function (saveExp, product) {
 					if (saveExp)
@@ -189,7 +190,7 @@ const server = express()
 				msg += `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
 				for( var username in responseUserList.errorList )
 				{
-					msg += username + ": " + responseUserList.errorList[username];
+					msg += username + ": " + responseUserList.errorList[username].message+ "\r\n";;
 				}
 				res.send({msg, "status": "ERROR"});
 			}
@@ -234,7 +235,7 @@ const server = express()
 					msg += `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
 					for( var username in responseUserList.errorList )
 					{
-						msg += username + ": " + responseUserList.errorList[username];
+						msg += username + ": " + responseUserList.errorList[username].message + "\r\n";;
 					}
 					res.send({msg, "status": "ERROR"});
 				}
@@ -285,7 +286,8 @@ const server = express()
 		const userManagement = new UserManagement();
 		userManagement.createWtsaUserIfNotExist( data.sender, data.receiver, function(responseData){
 			
-			if( Object.keys(responseData.errorList).length == 0)
+			var errorUsernameList = Object.keys(responseUserList.errorList);
+			if( errorUsernameList.length == 0)
 			{
 				// Save message to mongodb
 				let msg = data.msg;
@@ -310,10 +312,10 @@ const server = express()
 				message.save().then(() => {
 					
 					const to = messageData.receiver;
-					console.log("socketList.hasOwnProperty(to) : " + socketList.hasOwnProperty(to) );
 					if(socketList.hasOwnProperty(to)){
 						socketList[to].emit( 'sendMsg', messageData );
 					};
+
 					
 					const from = messageData.sender;
 					if(socketList.hasOwnProperty(from)){
@@ -326,8 +328,14 @@ const server = express()
 			}
 			else
 			{
-				res.send(responseData);
-				console.log("--- Users are created failed." + responseData.msg);
+				var msg = `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
+				for( var username in responseUserList.errorList )
+				{
+					msg += username + ": " + responseUserList.errorList[username].message + "\r\n";;
+				}
+
+				res.send({status: "ERROR", msg});
+				console.log("--- Users are created failed." + msg);
 			}
 		})
 	}
@@ -410,8 +418,6 @@ io.on('connection', socket => {
 
 	// Do something when a file is saved:
 	uploader.on("saved", function (event) {
-		// console.log(event);
-
 		const filePath = event.file.name.split(".");
 		event.file.clientDetail.name = event.file.base + "." + filePath[filePath.length - 1]; 
 	});
@@ -559,15 +565,36 @@ io.on('connection', socket => {
 	
 	socket.on('create_new_user', ( userList ) => {
 		const userManagement = new UserManagement();
-		// successList": me.successList, "errorList
-
+		
 		userManagement.createUserList( userList, function(responseData){
-			var savedUserList = Object.values( responseData.successList );
-			for( let i=-0; i<savedUserList.length; i++ )
+			var errorUsernameList = Object.keys(responseData.errorList);
+			if(errorUsernameList.length > 0 ) 
 			{
-				let username = savedUserList[i].username;
-				if(socketList.hasOwnProperty(username)){
-					socketList[username].emit('new_user_created', savedUserList);
+				// Create error message
+				var msg = `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
+				for( var username in responseData.errorList )
+				{
+					msg += username + ": " + responseData.errorList[username].message + "\r\n";
+				}
+
+				// 
+				for( let i=0; i<userList.length; i++ )
+				{
+					var username = userList[i].username;
+					if(socketList.hasOwnProperty(username)){
+						socketList[username].emit('new_user_created_error', msg);
+					}
+				}
+			}
+			else
+			{
+				var savedUserList = Object.values( responseData.successList );
+				for( let i=0; i<savedUserList.length; i++ )
+				{
+					let username = savedUserList[i].username;
+					if(socketList.hasOwnProperty(username)){
+						socketList[username].emit('new_user_created', savedUserList);
+					}
 				}
 			}
 		})

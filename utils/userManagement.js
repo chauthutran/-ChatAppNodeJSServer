@@ -35,7 +35,7 @@ const UserManagement = class {
 				}
 				else
 				{
-					existedList[userData.username] = found;
+					me.existedList[userData.username] = found;
 				}
 			}
 
