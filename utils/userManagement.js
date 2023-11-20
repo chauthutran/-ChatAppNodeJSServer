@@ -39,10 +39,18 @@ const UserManagement = class {
 				}
 			}
 
-			// Save list of users
-			me.saveUsers( jsonUserList, function(){
-				exeFunc({"successList": me.successList, "errorList": me.errorList });
-			} );
+			if( jsonUserList.length > 0 )
+			{
+				// Save list of users
+				me.saveUsers( jsonUserList, function(){
+					exeFunc({"successList": me.successList, "errorList": me.errorList });
+				} );
+			}
+			else
+			{
+				exeFunc({"successList": {}, "errorList": {} });
+			}
+			
 		});
 	};
 
@@ -130,10 +138,17 @@ const UserManagement = class {
 				}
 			}
 
-			// Save list of user
-			me.saveUsers( jsonUserList, function(){
-				exeFunc({"successList": me.successList, "errorList": me.errorList });
-			} );
+			if( jsonUserList.length > 0 )
+			{
+				// Save list of user
+				me.saveUsers( jsonUserList, function(){
+					exeFunc({"successList": me.successList, "errorList": me.errorList });
+				} );
+			}
+			else
+			{
+				exeFunc({"successList": {}, "errorList": {} });
+			}
 		}).catch(function (err) {
 			console.log("-- Couldn't create users because " + err.message );
 		});

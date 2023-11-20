@@ -196,8 +196,14 @@ const server = express()
 			}
 			else
 			{
-
-				res.send({msg: `Users are created.`, "status": "SUCCESS"});
+				if( Object.keys(responseUserList.successList).length > 0  )
+				{
+					res.send({msg: `Users are created.`, "status": "SUCCESS"});
+				}
+				else
+				{
+					res.send({"status": "SUCCESS"});
+				}
 			}
 		});
 	}
@@ -286,7 +292,7 @@ const server = express()
 		const userManagement = new UserManagement();
 		userManagement.createWtsaUserIfNotExist( data.sender, data.receiver, function(responseData){
 			
-			var errorUsernameList = Object.keys(responseUserList.errorList);
+			var errorUsernameList = Object.keys(responseData.errorList);
 			if( errorUsernameList.length == 0)
 			{
 				// Save message to mongodb
@@ -329,9 +335,9 @@ const server = express()
 			else
 			{
 				var msg = `ERROR while creating users ${errorUsernameList.join(", ")}. See details below : `;
-				for( var username in responseUserList.errorList )
+				for( var username in responseData.errorList )
 				{
-					msg += username + ": " + responseUserList.errorList[username].message + "\r\n";;
+					msg += username + ": " + responseData.errorList[username].message + "\r\n";;
 				}
 
 				res.send({status: "ERROR", msg});
